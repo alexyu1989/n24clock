@@ -41,9 +41,9 @@ struct OnboardingGuideView: View {
     private var preferredWakeOptions: [Int] { [5, 6, 7, 8, 9] }
 
     private var biologicalDayLengthHours: Double? {
-        guard cycleLengthInDays > 1 else { return nil }
+        guard cycleLengthInDays > 0 else { return nil }
         let days = Double(cycleLengthInDays)
-        return days * 24 / (days - 1)
+        return 24 + 24 / days
     }
 
     private var dayLengthDescription: String {
@@ -106,18 +106,8 @@ struct OnboardingGuideView: View {
         }
 
         let dayLengthSeconds = hours * 3600
-        let calendar = Calendar.autoupdatingCurrent
-        var components = DateComponents()
-        components.hour = preferredWakeHour
-        components.minute = 0
-        components.second = 0
-
-        let referenceStart = calendar.nextDate(
-            after: yesterdayWake,
-            matching: components,
-            matchingPolicy: .nextTime,
-            direction: .backward
-        ) ?? yesterdayWake
+        let wakeOffset = TimeInterval(preferredWakeHour) * 3600
+        let referenceStart = yesterdayWake.addingTimeInterval(-wakeOffset)
         let parameters = BiologicalClockParameters(
             biologicalDayLength: dayLengthSeconds,
             referenceStart: referenceStart,
