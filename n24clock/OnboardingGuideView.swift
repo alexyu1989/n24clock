@@ -10,7 +10,7 @@ struct OnboardingGuideView: View {
             switch self {
             case .cycleLength: return "您的生物钟一个轮回是多少天？"
             case .yesterdayWake: return "昨天您几点起床？"
-            case .targetWake: return "您理想中的起床时间是几点？"
+            case .targetWake: return "您希望您的内在生物钟看起来是几点起床？"
             }
         }
     }
@@ -38,7 +38,7 @@ struct OnboardingGuideView: View {
         }
     }
 
-    private var preferredWakeOptions: [Int] { [5, 6, 7, 8] }
+    private var preferredWakeOptions: [Int] { [5, 6, 7, 8, 9] }
 
     private var biologicalDayLengthHours: Double? {
         guard cycleLengthInDays > 1 else { return nil }
@@ -168,7 +168,7 @@ struct OnboardingGuideView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Picker("", selection: $cycleLengthInDays) {
-                        ForEach(15...60, id: \.self) { day in
+                        ForEach(10...60, id: \.self) { day in
                             Text("\(day) 天")
                                 .tag(day)
                         }
