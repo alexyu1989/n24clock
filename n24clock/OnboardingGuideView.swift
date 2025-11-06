@@ -25,6 +25,14 @@ struct OnboardingGuideView: View {
         step == .wakeSetup ? "完成" : "下一步"
     }
 
+    private var progress: Double {
+        Double(step.rawValue + 1) / Double(Step.allCases.count)
+    }
+
+    private var stepDescription: String {
+        "步骤 \(step.rawValue + 1) / \(Step.allCases.count)"
+    }
+
     private var canContinue: Bool {
         switch step {
         case .cycleLength:
@@ -99,35 +107,44 @@ struct OnboardingGuideView: View {
         let referenceStart = wakeTime.addingTimeInterval(-wakeOffset)
         let parameters = BiologicalClockParameters(
             biologicalDayLength: dayLengthSeconds,
-            referenceStart: referenceStart,
-            referenceDayIndex: 0
+            referenceStart: referenceStart
         )
         onComplete(parameters)
     }
 
     var body: some View {
-        VStack(spacing: 32) {
-            Text(step.title)
-                .font(.title2.weight(.medium))
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ZStack {
+            LinearGradient(
+                colors: [Color(.systemIndigo).opacity(0.35), Color(.systemBackground)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 28) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(stepDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-            Spacer()
+                    Text(step.title)
+                        .font(.title2.weight(.semibold))
 
-            HStack {
-                if step != .cycleLength {
-                    Button("上一步", action: goBackward)
+                    ProgressView(value: progress)
+                        .tint(.accentColor)
+                        .animation(.easeInOut, value: progress)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer()
+                contentCard
 
-                Button(nextButtonTitle, action: goForward)
-                    .disabled(!canContinue)
+                Spacer(minLength: 0)
+
+                actionBar
             }
+            .padding(.vertical, 32)
+            .padding(.horizontal, 20)
         }
-        .padding()
         .animation(.easeInOut, value: step)
         .alert("请检查输入", isPresented: $showError) {
             Button("好的", role: .cancel) { }
@@ -195,8 +212,98 @@ struct OnboardingGuideView: View {
             }
         }
     }
+
+    private var contentCard: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            content
+
+            Divider()
+
+            helperTip
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 20, x: 0, y: 12)
+        )
+    }
+
+    private var helperTip: some View {
+        let text: String
+        switch step {
+        case .cycleLength:
+            text = "如果不确定，请回想上一次醒来自然调整到当前节律大约花了多少天。"
+        case .wakeSetup:
+            text = "选择希望的起床时间后，我们会把今天的醒来时间对齐到新的生物日零点。"
+        }
+
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lightbulb.fill")
+                .font(.title3)
+                .foregroundStyle(.yellow)
+
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var actionBar: some View {
+        HStack(spacing: 16) {
+            if step != .cycleLength {
+                Button("上一步", action: goBackward)
+                    .buttonStyle(SecondaryActionButtonStyle())
+            }
+
+            Button(nextButtonTitle, action: goForward)
+                .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(!canContinue)
+                .opacity(canContinue ? 1 : 0.4)
+        }
+    }
 }
 
 #Preview {
     OnboardingGuideView { _ in }
+}
+
+// MARK: - Button Styles
+
+private struct PrimaryActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.accentColor)
+                    .shadow(color: Color.accentColor.opacity(0.2), radius: 10, x: 0, y: 8)
+            )
+            .foregroundStyle(Color.white)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
+}
+
+private struct SecondaryActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.medium))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color(.systemBackground).opacity(0.9))
+                    )
+            )
+            .foregroundStyle(Color.accentColor)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
 }

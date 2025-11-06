@@ -8,14 +8,11 @@ struct BiologicalClockParameters: Equatable, Codable {
     let biologicalDayLength: TimeInterval 
     /// 对应生物日0且偏移为0的现实世界时间戳。
     let referenceStart: Date
-    /// 从 referenceStart 开始的生物日编号（默认0）。
-    let referenceDayIndex: Int
 
-    init(biologicalDayLength: TimeInterval, referenceStart: Date, referenceDayIndex: Int = 0) {
+    init(biologicalDayLength: TimeInterval, referenceStart: Date) {
         precondition(biologicalDayLength > 0, "Biological day length must be positive.")
         self.biologicalDayLength = biologicalDayLength
         self.referenceStart = referenceStart
-        self.referenceDayIndex = referenceDayIndex
     }
 }
 
@@ -62,7 +59,7 @@ struct BiologicalClock {
         let elapsed = date.timeIntervalSince(parameters.referenceStart)
         let completedDays = Int(floor(elapsed / dayLength))
         var offset = elapsed - Double(completedDays) * dayLength
-        var dayIndex = parameters.referenceDayIndex + completedDays
+        var dayIndex = completedDays
 
         if offset < 0 {
             offset += dayLength
@@ -104,14 +101,11 @@ extension BiologicalClockParameters {
         let minutes: Int
         let seconds: Int
         let referenceStart: Date
-        let referenceDayIndex: Int
-
-        public init(hours: Int, minutes: Int, seconds: Int = 0, referenceStart: Date, referenceDayIndex: Int = 0) {
+        public init(hours: Int, minutes: Int, seconds: Int = 0, referenceStart: Date) {
             self.hours = hours
             self.minutes = minutes
             self.seconds = seconds
             self.referenceStart = referenceStart
-            self.referenceDayIndex = referenceDayIndex
         }
 
         /// 将用户输入的组件转换为规范化参数。
@@ -119,8 +113,7 @@ extension BiologicalClockParameters {
             let totalSeconds = try Self.validateAndComputeDayLength(hours: hours, minutes: minutes, seconds: seconds)
             return BiologicalClockParameters(
                 biologicalDayLength: totalSeconds,
-                referenceStart: referenceStart,
-                referenceDayIndex: referenceDayIndex
+                referenceStart: referenceStart
             )
         }
 
@@ -144,14 +137,13 @@ extension BiologicalClockParameters {
     }
 
     /// 为直接数值输入（例如滑杆）提供的便捷工厂方法。
-    static func from(dayLength: TimeInterval, referenceStart: Date, referenceDayIndex: Int = 0) throws -> BiologicalClockParameters {
+    static func from(dayLength: TimeInterval, referenceStart: Date) throws -> BiologicalClockParameters {
         guard dayLength > 0 else {
             throw UserInput.InputError.zeroLengthDay
         }
         return BiologicalClockParameters(
             biologicalDayLength: dayLength,
-            referenceStart: referenceStart,
-            referenceDayIndex: referenceDayIndex
+            referenceStart: referenceStart
         )
     }
 }
