@@ -46,7 +46,6 @@ private struct ClockDashboardView: View {
         let remainingText = Self.remainingDescription(for: state.remainingInDay)
         let dayLengthText = Self.dayLengthDescription(for: state.dayLength)
         let progressValue = max(0, min(100, Int(round(state.progress * 100))))
-        let localStamp = date.formatted(date: .abbreviated, time: .shortened)
         let dayIndexValue = "#\(state.dayIndex)"
 
         ZStack {
@@ -62,10 +61,6 @@ private struct ClockDashboardView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
-                    Label(localStamp, systemImage: "clock")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
                     mainCard(
                         state: state,
                         formattedTime: formattedTime,
