@@ -3,26 +3,30 @@ import SwiftUI
 struct OnboardingGuideView: View {
     enum Step: Int, CaseIterable {
         case cycleLength
-        case wakeSetup
+        case wakeActual
+        case wakePreference
 
         var title: String {
             switch self {
             case .cycleLength: return "您的生物钟一个轮回是多少天？"
-            case .wakeSetup: return "今天您几点起床的？"
+            case .wakeActual: return "今天最近一次起床是几点的？"
+            case .wakePreference: return "希望对齐到生物钟起床时间是几点？"
             }
         }
     }
 
     let onComplete: (BiologicalClockParameters) -> Void
 
+    private static let wakeMinuteInterval: Int = 5
+
     @State private var step: Step = .cycleLength
     @State private var cycleLengthInDays: Int = 30
-    @State private var wakeTime: Date = Date()
+    @State private var wakeTime: Date = Self.roundedDate(Date(), minuteInterval: Self.wakeMinuteInterval)
     @State private var preferredWakeHour: Int = 6
     @State private var showError: Bool = false
 
     private var nextButtonTitle: String {
-        step == .wakeSetup ? "完成" : "下一步"
+        step == .wakePreference ? "完成设置" : "下一步"
     }
 
     private var progress: Double {
@@ -37,7 +41,7 @@ struct OnboardingGuideView: View {
         switch step {
         case .cycleLength:
             return cycleLengthInDays > 1
-        case .wakeSetup:
+        case .wakeActual, .wakePreference:
             return true
         }
     }
@@ -73,15 +77,22 @@ struct OnboardingGuideView: View {
     private func goForward() {
         switch step {
         case .cycleLength:
-            step = .wakeSetup
-        case .wakeSetup:
+            step = .wakeActual
+        case .wakeActual:
+            step = .wakePreference
+        case .wakePreference:
             completeSetup()
         }
     }
 
     private func goBackward() {
-        if step == .wakeSetup {
+        switch step {
+        case .cycleLength:
+            break
+        case .wakeActual:
             step = .cycleLength
+        case .wakePreference:
+            step = .wakeActual
         }
     }
 
@@ -181,34 +192,39 @@ struct OnboardingGuideView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-        case .wakeSetup:
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("请在下方选择您今天实际醒来的时间（以当前设备时区计）。")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        case .wakeActual:
+            VStack(alignment: .leading, spacing: 16) {
+                Text("请在下方选择您今天实际醒来的时间。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-                    DatePicker("", selection: $wakeTime, displayedComponents: [.hourAndMinute])
-                        .labelsHidden()
+                DatePicker("", selection: wakeTimeBinding, displayedComponents: [.hourAndMinute])
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
 
-                    Text("当前选择：今天 \(wakeDescription)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                Text("当前选择：今天 \(wakeDescription)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        case .wakePreference:
+            VStack(alignment: .leading, spacing: 20) {
+                Text("选择一个你希望长期保持的理想起床时间，我们会把今天实际醒来的那一刻对齐到这个时间点，之后的生物日都会以它作为 0 点。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("你希望匹配到你的生物钟起床时间是几点？")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Picker("", selection: $preferredWakeHour) {
-                        ForEach(preferredWakeOptions, id: \.self) { hour in
-                            Text("\(hour):00")
-                                .tag(hour)
-                        }
+                Picker("", selection: $preferredWakeHour) {
+                    ForEach(preferredWakeOptions, id: \.self) { hour in
+                        Text("\(hour):00")
+                            .tag(hour)
                     }
-                    .pickerStyle(.segmented)
                 }
+                .pickerStyle(.segmented)
+
+                alignmentPreview
+
+                Text("例：如果今天实际 9:30 醒来，而你选择 7:00，我们会把今天这次醒来当作 7:00，并据此推算接下来的生物日。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -235,8 +251,10 @@ struct OnboardingGuideView: View {
         switch step {
         case .cycleLength:
             text = "如果不确定，请回想上一次醒来自然调整到当前节律大约花了多少天。"
-        case .wakeSetup:
-            text = "选择希望的起床时间后，我们会把今天的醒来时间对齐到新的生物日零点。"
+        case .wakeActual:
+            text = "选择实际醒来的时间时，分钟会按 5 分钟跳动，便于快速输入。"
+        case .wakePreference:
+            text = "将今天的实际醒来对齐到理想起床时间，可以让之后的节律都围绕它展开。"
         }
 
         return HStack(alignment: .top, spacing: 12) {
@@ -262,6 +280,61 @@ struct OnboardingGuideView: View {
                 .disabled(!canContinue)
                 .opacity(canContinue ? 1 : 0.4)
         }
+    }
+
+    private var alignmentPreview: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("实际醒来", systemImage: "alarm.waves.left.and.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(wakeDescription)
+                    .font(.headline)
+            }
+
+            Image(systemName: "arrow.right")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Label("对齐到", systemImage: "target")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(String(format: "%02d:00", preferredWakeHour))
+                    .font(.headline)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(.systemBackground).opacity(0.9))
+        )
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
+    }
+
+    private var wakeTimeBinding: Binding<Date> {
+        Binding(
+            get: { wakeTime },
+            set: { newValue in
+                let rounded = Self.roundedDate(newValue, minuteInterval: Self.wakeMinuteInterval)
+                if rounded != wakeTime {
+                    wakeTime = rounded
+                }
+            }
+        )
+    }
+
+    private static func roundedDate(_ date: Date, minuteInterval: Int) -> Date {
+        guard minuteInterval > 1 else { return date }
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        if let minute = components.minute {
+            let remainder = minute % minuteInterval
+            components.minute = minute - remainder
+        }
+        components.second = 0
+        return calendar.date(from: components) ?? date
     }
 }
 
