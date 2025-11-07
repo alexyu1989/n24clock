@@ -30,6 +30,7 @@ private struct ClockDashboardView: View {
                 dashboard(for: context.date)
             }
             .navigationTitle("非24小时生物钟")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("重新设置", action: onReset)
@@ -67,10 +68,9 @@ private struct ClockDashboardView: View {
                         progressValue: progressValue,
                         remainingText: remainingText,
                         dayLengthText: dayLengthText,
-                        dayIndexValue: dayIndexValue
+                        dayIndexValue: dayIndexValue,
+                        date: date
                     )
-
-                    insightCard(state: state, date: date)
                 }
                 .padding(.vertical, 32)
                 .padding(.horizontal, 20)
@@ -84,28 +84,23 @@ private struct ClockDashboardView: View {
         progressValue: Int,
         remainingText: String,
         dayLengthText: String,
-        dayIndexValue: String
+        dayIndexValue: String,
+        date: Date
     ) -> some View {
         let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
 
         return VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("当前生物时间")
+                Text("内在生物钟时间")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
                 Text("BT \(formattedTime)")
-                    .font(.system(size: 44, weight: .bold, design: .monospaced))
-
-                Text("今日进度 \(progressValue)%")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 12)
-                    .background(
-                        Capsule()
-                            .fill(Color.accentColor.opacity(0.18))
-                    )
-                    .foregroundStyle(Color.accentColor)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .fontDesign(.monospaced)
+                ClockDriftInfoView(state: state, date: date)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             BiologicalClockDial(state: state)
@@ -114,7 +109,7 @@ private struct ClockDashboardView: View {
 
             LazyVGrid(columns: columns, spacing: 16) {
                 DashboardInfoTile(title: "距离下一生物日", value: remainingText, icon: "hourglass.bottomhalf.fill")
-                DashboardInfoTile(title: "生物日长度", value: dayLengthText, icon: "ruler")
+                DashboardInfoTile(title: "生物钟长度", value: dayLengthText, icon: "ruler")
                 DashboardInfoTile(title: "节律进度", value: "\(progressValue)%", icon: "chart.pie.fill")
                 DashboardInfoTile(title: "当前编号", value: dayIndexValue, icon: "calendar")
             }
@@ -125,34 +120,6 @@ private struct ClockDashboardView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Color(.systemBackground).opacity(0.95))
                 .shadow(color: Color.black.opacity(0.16), radius: 24, x: 0, y: 16)
-        )
-    }
-
-    private func insightCard(state: BiologicalClock.State, date: Date) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
-                Image(systemName: "globe.asia.australia.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.accentColor)
-                Text("节律漂移")
-                    .font(.headline)
-            }
-
-            ClockDriftInfoView(state: state, date: date)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider()
-
-            Text("提示: 如需重新校准，请点击右上角 \"重新设置\"。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.secondarySystemBackground).opacity(0.95))
-                .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 12)
         )
     }
 
@@ -170,11 +137,11 @@ private struct ClockDashboardView: View {
         let seconds = clamped % 60
 
         if hours > 0 {
-            return "\(hours) 小时 \(minutes) 分钟"
+            return "\(hours)h \(minutes)m"
         } else if minutes > 0 {
-            return "\(minutes) 分钟 \(seconds) 秒"
+            return "\(minutes)m \(seconds)s"
         } else {
-            return "\(seconds) 秒"
+            return "\(seconds)s"
         }
     }
 
@@ -182,7 +149,7 @@ private struct ClockDashboardView: View {
         let totalMinutes = Int(round(interval / 60))
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
-        return "\(hours) 小时 \(minutes) 分钟"
+        return "\(hours)h \(minutes)m"
     }
 }
 

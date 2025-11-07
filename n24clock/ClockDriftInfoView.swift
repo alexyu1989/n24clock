@@ -9,13 +9,22 @@ struct ClockDriftInfoView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(info.destinationDescription)
-                .font(.title3)
+        VStack(alignment: .leading, spacing: 8) {
+            destinationLine
             Text("与本地时间相差 \(info.differenceText)")
                 .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var destinationLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("你今天漂移到了")
+            HighlightedCityName(text: info.cityName)
+            Text(info.utcDescription)
+        }
+        .font(.title3)
     }
 }
 
@@ -23,9 +32,20 @@ private struct DriftInfo {
     let differenceText: String
     let cityName: String
     let utcDescription: String
+}
 
-    var destinationDescription: String {
-        "你今天漂移到了\(cityName) \(utcDescription)"
+private struct HighlightedCityName: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.title3.weight(.semibold))
+            .overlay(alignment: .bottom) {
+                Capsule()
+                    .fill(Color.yellow.opacity(0.85))
+                    .frame(height: 4)
+                    .offset(y: 4)
+            }
     }
 }
 
