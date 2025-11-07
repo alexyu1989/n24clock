@@ -105,7 +105,7 @@ private struct ClockDashboardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            BiologicalClockDial(state: state)
+            BiologicalClockDial(state: state, sleepArc: sleepArc)
                 .frame(maxWidth: 320, maxHeight: 320)
                 .frame(maxWidth: .infinity)
 
@@ -123,6 +123,35 @@ private struct ClockDashboardView: View {
                 .fill(Color(.systemBackground).opacity(0.95))
                 .shadow(color: Color.black.opacity(0.16), radius: 24, x: 0, y: 16)
         )
+    }
+
+    private var sleepArc: BiologicalClockDial.SleepArc? {
+        guard let wakeOffset = parameters.preferredWakeOffset,
+              let duration = parameters.preferredSleepDuration,
+              duration > 0 else { return nil }
+        let dayLength = parameters.biologicalDayLength
+        guard dayLength > 0 else { return nil }
+
+        let clampedDuration = min(duration, dayLength)
+        if clampedDuration >= dayLength {
+            return BiologicalClockDial.SleepArc(startFraction: 0,
+                                                endFraction: 1,
+                                                wrapsAround: false)
+        }
+        let startFraction = normalizedFraction(for: wakeOffset - clampedDuration, dayLength: dayLength)
+        let endFraction = normalizedFraction(for: wakeOffset, dayLength: dayLength)
+        let wraps = startFraction > endFraction && clampedDuration < dayLength
+
+        return BiologicalClockDial.SleepArc(startFraction: startFraction,
+                                            endFraction: endFraction,
+                                            wrapsAround: wraps)
+    }
+
+    private func normalizedFraction(for offset: TimeInterval, dayLength: TimeInterval) -> Double {
+        guard dayLength > 0 else { return 0 }
+        var value = offset.truncatingRemainder(dividingBy: dayLength)
+        if value < 0 { value += dayLength }
+        return value / dayLength
     }
 
     private static func formattedBiologicalTime(from components: DateComponents) -> String {

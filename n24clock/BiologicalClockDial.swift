@@ -1,7 +1,19 @@
 import SwiftUI
 
 struct BiologicalClockDial: View {
+    struct SleepArc {
+        let startFraction: Double
+        let endFraction: Double
+        let wrapsAround: Bool
+    }
+
     let state: BiologicalClock.State
+    let sleepArc: SleepArc?
+
+    init(state: BiologicalClock.State, sleepArc: SleepArc? = nil) {
+        self.state = state
+        self.sleepArc = sleepArc
+    }
 
     private var progress: Double {
         state.progress
@@ -11,8 +23,12 @@ struct BiologicalClockDial: View {
         GeometryReader { geometry in
             let dimension = min(geometry.size.width, geometry.size.height)
             let radius = dimension / 2
-            let outerPadding: CGFloat = 0 // padding 默认是0
-            let drawingRadius = radius - outerPadding
+            let sleepArcLineWidth: CGFloat = 18
+            let sleepArcSpacing: CGFloat = 4
+            let safetyPadding: CGFloat = 2
+            let dialInset = sleepArcSpacing + sleepArcLineWidth + safetyPadding
+            let drawingRadius = max(radius - dialInset, 0)
+            let sleepArcRadius = drawingRadius + sleepArcSpacing + sleepArcLineWidth / 2
             let ticks = tickMarks(totalHours: state.dayLength / 3600)
             let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
 
@@ -20,6 +36,13 @@ struct BiologicalClockDial: View {
                 Canvas { context, size in
                     let center = CGPoint(x: size.width / 2, y: size.height / 2)
                     let radius = drawingRadius
+                    if let sleepArc {
+                        drawSleepArc(sleepArc,
+                                     center: center,
+                                     radius: sleepArcRadius,
+                                     lineWidth: sleepArcLineWidth,
+                                     context: &context)
+                    }
 
                     // 表盘填充
                     var fillCircle = Path()
@@ -121,6 +144,45 @@ struct BiologicalClockDial: View {
 }
 
 private extension BiologicalClockDial {
+    func drawSleepArc(_ arc: SleepArc,
+                      center: CGPoint,
+                      radius: CGFloat,
+                      lineWidth: CGFloat,
+                      context: inout GraphicsContext) {
+        let color = Color(red: 15 / 255, green: 23 / 255, blue: 42 / 255)
+        let strokeStyle = StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+
+        if arc.wrapsAround {
+            drawArcSegment(from: arc.startFraction, to: 1, center: center, radius: radius, color: color, style: strokeStyle, context: &context)
+            drawArcSegment(from: 0, to: arc.endFraction, center: center, radius: radius, color: color, style: strokeStyle, context: &context)
+        } else {
+            drawArcSegment(from: arc.startFraction, to: arc.endFraction, center: center, radius: radius, color: color, style: strokeStyle, context: &context)
+        }
+    }
+
+    func drawArcSegment(from startFraction: Double,
+                        to endFraction: Double,
+                        center: CGPoint,
+                        radius: CGFloat,
+                        color: Color,
+                        style: StrokeStyle,
+                        context: inout GraphicsContext) {
+        guard startFraction != endFraction else { return }
+        var path = Path()
+        path.addArc(center: center,
+                    radius: radius,
+                    startAngle: angle(for: startFraction),
+                    endAngle: angle(for: endFraction),
+                    clockwise: false)
+        context.stroke(path,
+                       with: .color(color.opacity(0.85)),
+                       style: style)
+    }
+
+    func angle(for fraction: Double) -> Angle {
+        Angle(degrees: fraction * 360 - 90)
+    }
+
     func tickMarks(totalHours: Double) -> [TickMark] {
         guard totalHours > 0 else { return [] }
 
@@ -181,5 +243,6 @@ private extension BiologicalClockDial {
 }
 
 #Preview {
-    BiologicalClockDial(state: .init(dayIndex: 1, offsetWithinDay: 7200, dayLength: 89640))
+    BiologicalClockDial(state: .init(dayIndex: 1, offsetWithinDay: 7200, dayLength: 89640),
+                        sleepArc: .init(startFraction: 0.6, endFraction: 0.05, wrapsAround: true))
 }

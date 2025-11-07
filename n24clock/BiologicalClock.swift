@@ -8,11 +8,22 @@ struct BiologicalClockParameters: Equatable, Codable {
     let biologicalDayLength: TimeInterval 
     /// 对应生物日0且偏移为0的现实世界时间戳。
     let referenceStart: Date
+    /// 理想起床时刻相对于生物日开始的偏移（秒）。
+    let preferredWakeOffset: TimeInterval?
+    /// 理想睡眠时长（秒）。
+    let preferredSleepDuration: TimeInterval?
 
-    init(biologicalDayLength: TimeInterval, referenceStart: Date) {
+    init(
+        biologicalDayLength: TimeInterval,
+        referenceStart: Date,
+        preferredWakeOffset: TimeInterval? = nil,
+        preferredSleepDuration: TimeInterval? = nil
+    ) {
         precondition(biologicalDayLength > 0, "Biological day length must be positive.")
         self.biologicalDayLength = biologicalDayLength
         self.referenceStart = referenceStart
+        self.preferredWakeOffset = preferredWakeOffset
+        self.preferredSleepDuration = preferredSleepDuration
     }
 }
 
@@ -113,7 +124,9 @@ extension BiologicalClockParameters {
             let totalSeconds = try Self.validateAndComputeDayLength(hours: hours, minutes: minutes, seconds: seconds)
             return BiologicalClockParameters(
                 biologicalDayLength: totalSeconds,
-                referenceStart: referenceStart
+                referenceStart: referenceStart,
+                preferredWakeOffset: nil,
+                preferredSleepDuration: nil
             )
         }
 

@@ -1,16 +1,19 @@
 import SwiftUI
+import UIKit
 
 struct OnboardingGuideView: View {
     enum Step: Int, CaseIterable {
         case cycleLength
         case wakeActual
         case wakePreference
+        case sleepDuration
 
         var title: String {
             switch self {
             case .cycleLength: return "您的生物钟一个轮回是多少天？"
             case .wakeActual: return "今天最近一次起床是几点的？"
             case .wakePreference: return "希望对齐到生物钟起床时间是几点？"
+            case .sleepDuration: return "通常会睡多久呢？"
             }
         }
     }
@@ -18,15 +21,19 @@ struct OnboardingGuideView: View {
     let onComplete: (BiologicalClockParameters) -> Void
 
     private static let wakeMinuteInterval: Int = 5
+    private static let defaultSleepDuration: TimeInterval = 7 * 3600
+    private static let minimumSleepDuration: TimeInterval = TimeInterval(wakeMinuteInterval * 60)
+    private static let maxSleepDurationMinutes: Int = 23 * 60 + 55
 
     @State private var step: Step = .cycleLength
     @State private var cycleLengthInDays: Int = 30
     @State private var wakeTime: Date = Self.roundedDate(Date(), minuteInterval: Self.wakeMinuteInterval)
     @State private var preferredWakeHour: Int = 6
+    @State private var sleepDuration: TimeInterval = Self.defaultSleepDuration
     @State private var showError: Bool = false
 
     private var nextButtonTitle: String {
-        step == .wakePreference ? "完成设置" : "下一步"
+        step == .sleepDuration ? "完成设置" : "下一步"
     }
 
     private var progress: Double {
@@ -43,6 +50,8 @@ struct OnboardingGuideView: View {
             return cycleLengthInDays > 1
         case .wakeActual, .wakePreference:
             return true
+        case .sleepDuration:
+            return sleepDuration >= Self.minimumSleepDuration
         }
     }
 
@@ -81,6 +90,8 @@ struct OnboardingGuideView: View {
         case .wakeActual:
             step = .wakePreference
         case .wakePreference:
+            step = .sleepDuration
+        case .sleepDuration:
             completeSetup()
         }
     }
@@ -93,6 +104,8 @@ struct OnboardingGuideView: View {
             step = .cycleLength
         case .wakePreference:
             step = .wakeActual
+        case .sleepDuration:
+            step = .wakePreference
         }
     }
 
@@ -107,6 +120,18 @@ struct OnboardingGuideView: View {
         Self.timeFormatter.string(from: wakeTime)
     }
 
+    private var sleepDurationDescription: String {
+        let totalMinutes = Int(sleepDuration / 60)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+
+        if minutes == 0 {
+            return "\(hours) 小时"
+        } else {
+            return "\(hours) 小时 \(minutes) 分钟"
+        }
+    }
+
     private func completeSetup() {
         guard let hours = biologicalDayLengthHours else {
             showError = true
@@ -116,9 +141,12 @@ struct OnboardingGuideView: View {
         let dayLengthSeconds = hours * 3600
         let wakeOffset = TimeInterval(preferredWakeHour) * 3600
         let referenceStart = wakeTime.addingTimeInterval(-wakeOffset)
+        let clampedSleepDuration = max(sleepDuration, Self.minimumSleepDuration)
         let parameters = BiologicalClockParameters(
             biologicalDayLength: dayLengthSeconds,
-            referenceStart: referenceStart
+            referenceStart: referenceStart,
+            preferredWakeOffset: wakeOffset,
+            preferredSleepDuration: clampedSleepDuration
         )
         onComplete(parameters)
     }
@@ -201,6 +229,7 @@ struct OnboardingGuideView: View {
                 DatePicker("", selection: wakeTimeBinding, displayedComponents: [.hourAndMinute])
                     .datePickerStyle(.wheel)
                     .labelsHidden()
+                    .onAppear { Self.configureMinuteInterval() }
 
                 Text("当前选择：今天 \(wakeDescription)")
                     .font(.footnote)
@@ -223,6 +252,25 @@ struct OnboardingGuideView: View {
                 alignmentPreview
 
                 Text("例：如果今天实际 9:30 醒来，而你选择 7:00，我们会把今天这次醒来当作 7:00，并据此推算接下来的生物日。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        case .sleepDuration:
+            VStack(alignment: .leading, spacing: 16) {
+                Text("告诉我们一个大概的睡眠时长，方便在表盘外侧标注出睡眠区间。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                DatePicker("", selection: sleepDurationBinding, displayedComponents: [.hourAndMinute])
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .onAppear { Self.configureMinuteInterval() }
+
+                Text("当前选择：\(sleepDurationDescription)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Text("我们会默认在理想起床时间前倒推这个时长，来绘制睡眠弧线。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -255,6 +303,8 @@ struct OnboardingGuideView: View {
             text = "选择实际醒来的时间时，分钟会按 5 分钟跳动，便于快速输入。"
         case .wakePreference:
             text = "将今天的实际醒来对齐到理想起床时间，可以让之后的节律都围绕它展开。"
+        case .sleepDuration:
+            text = "睡眠弧线会以理想起床时间为终点，倒推你选择的时长，帮助你直观查看睡眠区。"
         }
 
         return HStack(alignment: .top, spacing: 12) {
@@ -325,6 +375,18 @@ struct OnboardingGuideView: View {
         )
     }
 
+    private var sleepDurationBinding: Binding<Date> {
+        Binding(
+            get: { Self.date(forDuration: sleepDuration) },
+            set: { newValue in
+                let duration = Self.durationValue(from: newValue, minuteInterval: Self.wakeMinuteInterval)
+                if duration != sleepDuration {
+                    sleepDuration = duration
+                }
+            }
+        )
+    }
+
     private static func roundedDate(_ date: Date, minuteInterval: Int) -> Date {
         guard minuteInterval > 1 else { return date }
         let calendar = Calendar.current
@@ -335,6 +397,38 @@ struct OnboardingGuideView: View {
         }
         components.second = 0
         return calendar.date(from: components) ?? date
+    }
+
+    private static func date(forDuration duration: TimeInterval) -> Date {
+        let totalMinutes = Int(duration / 60)
+        let sanitizedMinutes = min(max(totalMinutes, wakeMinuteInterval), maxSleepDurationMinutes)
+        let hours = sanitizedMinutes / 60
+        let minutes = sanitizedMinutes % 60
+        return date(forHours: hours, minutes: minutes)
+    }
+
+    private static func durationValue(from date: Date, minuteInterval: Int) -> TimeInterval {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        let minutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+        let minimumMinutes = minuteInterval
+        let clampedMinutes = min(max(minutes, minimumMinutes), maxSleepDurationMinutes)
+        let snappedMinutes = clampedMinutes - (clampedMinutes % minuteInterval)
+        return TimeInterval(snappedMinutes * 60)
+    }
+
+    private static func date(forHours hours: Int, minutes: Int) -> Date {
+        var components = DateComponents()
+        components.year = 2000
+        components.month = 1
+        components.day = 1
+        components.hour = hours
+        components.minute = minutes
+        components.second = 0
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    private static func configureMinuteInterval() {
+        UIDatePicker.appearance().minuteInterval = wakeMinuteInterval
     }
 }
 
