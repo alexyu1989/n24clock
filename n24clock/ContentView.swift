@@ -99,6 +99,8 @@ private struct ClockDashboardView: View {
                     .font(.title)
                     .fontWeight(.bold)
                     .fontDesign(.monospaced)
+                    .contentTransition(.numericText(value: state.offsetWithinDay))
+                    .animation(.easeInOut(duration: 0.25), value: formattedTime)
                 ClockDriftInfoView(state: state, date: date)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

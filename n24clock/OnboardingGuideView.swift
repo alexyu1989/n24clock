@@ -297,7 +297,7 @@ struct OnboardingGuideView: View {
                 .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 6) {
-                Label("对齐到", systemImage: "target")
+                Label("对齐到内在生物钟", systemImage: "target")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(String(format: "%02d:00", preferredWakeHour))

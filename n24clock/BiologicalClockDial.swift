@@ -93,7 +93,7 @@ struct BiologicalClockDial: View {
                     .fill(.red)
                     .frame(width: 6, height: 6)
                     .shadow(color: .blue.opacity(0.6), radius: 0, x:1.5, y: 1.5)
-
+                
                 // 刻度标签
                 ForEach(ticks, id: \.self) { tick in
                     if !tick.label.isEmpty {
@@ -106,9 +106,9 @@ struct BiologicalClockDial: View {
                             y: center.y + sinValue * labelRadius
                         )
                         Text(tick.label)
-                            .font(.caption)
+                            .font(.custom("BodoniSvtyTwoOSITCTT-BookIt", size: 22, relativeTo: .body))
+                            .kerning(1.5)
                             .foregroundStyle(.primary)
-                            .fontDesign(.rounded)
                             .position(labelOffset)
                     }
                 }
