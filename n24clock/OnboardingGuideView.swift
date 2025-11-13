@@ -321,14 +321,25 @@ struct OnboardingGuideView: View {
     private var actionBar: some View {
         HStack(spacing: 16) {
             if step != .cycleLength {
-                Button("上一步", action: goBackward)
-                    .buttonStyle(SecondaryActionButtonStyle())
+                Button(action: goBackward) {
+                    Text("上一步")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+                .glassyButtonStyle(.bordered)
             }
 
-            Button(nextButtonTitle, action: goForward)
-                .buttonStyle(PrimaryActionButtonStyle())
-                .disabled(!canContinue)
-                .opacity(canContinue ? 1 : 0.4)
+            Button(action: goForward) {
+                Text(nextButtonTitle)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
+            .tint(.accentColor)
+            .glassyButtonStyle(.borderedProminent)
+            .disabled(!canContinue)
+            .opacity(canContinue ? 1 : 0.4)
         }
     }
 
@@ -434,43 +445,4 @@ struct OnboardingGuideView: View {
 
 #Preview {
     OnboardingGuideView { _ in }
-}
-
-// MARK: - Button Styles
-
-private struct PrimaryActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.accentColor)
-                    .shadow(color: Color.accentColor.opacity(0.2), radius: 10, x: 0, y: 8)
-            )
-            .foregroundStyle(Color.white)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-    }
-}
-
-private struct SecondaryActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.subheadline.weight(.medium))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color(.systemBackground).opacity(0.9))
-                    )
-            )
-            .foregroundStyle(Color.accentColor)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-    }
 }

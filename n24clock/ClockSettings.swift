@@ -3,9 +3,27 @@ import Combine
 
 final class ClockSettings: ObservableObject {
     private let storageKey = "BiologicalClockParameters"
+    private var isNormalizingParameters = false
 
     @Published var parameters: BiologicalClockParameters? {
-        didSet { persist() }
+        didSet {
+            guard !isNormalizingParameters else {
+                persist()
+                return
+            }
+
+            if let params = parameters {
+                let normalized = params.ensuringSleepPreferences()
+                if normalized != params {
+                    isNormalizingParameters = true
+                    parameters = normalized
+                    isNormalizingParameters = false
+                    return
+                }
+            }
+
+            persist()
+        }
     }
 
     init() {
@@ -29,6 +47,7 @@ final class ClockSettings: ObservableObject {
 
     private static func load(from key: String) -> BiologicalClockParameters? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(BiologicalClockParameters.self, from: data)
+        guard let decoded = try? JSONDecoder().decode(BiologicalClockParameters.self, from: data) else { return nil }
+        return decoded.ensuringSleepPreferences()
     }
 }

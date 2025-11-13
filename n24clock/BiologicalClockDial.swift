@@ -4,11 +4,11 @@ struct BiologicalClockDial: View {
     struct SleepArc {
         let startFraction: Double
         let endFraction: Double
-        let wrapsAround: Bool
     }
 
     let state: BiologicalClock.State
     let sleepArc: SleepArc?
+    @Environment(\.colorScheme) private var colorScheme
 
     init(state: BiologicalClock.State, sleepArc: SleepArc? = nil) {
         self.state = state
@@ -31,6 +31,7 @@ struct BiologicalClockDial: View {
             let sleepArcRadius = drawingRadius + sleepArcSpacing + sleepArcLineWidth / 2
             let ticks = tickMarks(totalHours: state.dayLength / 3600)
             let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
+            let sleepArcColor = SleepArcColorProvider.color(for: colorScheme)
 
             ZStack {
                 Canvas { context, size in
@@ -41,6 +42,7 @@ struct BiologicalClockDial: View {
                                      center: center,
                                      radius: sleepArcRadius,
                                      lineWidth: sleepArcLineWidth,
+                                     color: sleepArcColor,
                                      context: &context)
                     }
 
@@ -111,12 +113,6 @@ struct BiologicalClockDial: View {
                     }
                 }
 
-                // 中心圆点
-                Circle()
-                    .fill(.red)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: .blue.opacity(0.6), radius: 0, x:1.5, y: 1.5)
-                
                 // 刻度标签
                 ForEach(ticks, id: \.self) { tick in
                     if !tick.label.isEmpty {
@@ -148,16 +144,18 @@ private extension BiologicalClockDial {
                       center: CGPoint,
                       radius: CGFloat,
                       lineWidth: CGFloat,
+                      color: Color,
                       context: inout GraphicsContext) {
-        let color = Color(red: 15 / 255, green: 23 / 255, blue: 42 / 255)
         let strokeStyle = StrokeStyle(lineWidth: lineWidth, lineCap: .round)
 
-        if arc.wrapsAround {
-            drawArcSegment(from: arc.startFraction, to: 1, center: center, radius: radius, color: color, style: strokeStyle, context: &context)
-            drawArcSegment(from: 0, to: arc.endFraction, center: center, radius: radius, color: color, style: strokeStyle, context: &context)
-        } else {
-            drawArcSegment(from: arc.startFraction, to: arc.endFraction, center: center, radius: radius, color: color, style: strokeStyle, context: &context)
-        }
+        let adjustedEnd = arc.endFraction < arc.startFraction ? arc.endFraction + 1 : arc.endFraction
+        drawArcSegment(from: arc.startFraction,
+                       to: adjustedEnd,
+                       center: center,
+                       radius: radius,
+                       color: color,
+                       style: strokeStyle,
+                       context: &context)
     }
 
     func drawArcSegment(from startFraction: Double,
@@ -244,5 +242,6 @@ private extension BiologicalClockDial {
 
 #Preview {
     BiologicalClockDial(state: .init(dayIndex: 1, offsetWithinDay: 7200, dayLength: 89640),
-                        sleepArc: .init(startFraction: 0.6, endFraction: 0.05, wrapsAround: true))
+                        sleepArc: .init(startFraction: 0.6, endFraction: 1.05)
+    )
 }

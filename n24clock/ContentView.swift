@@ -3,12 +3,18 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var settings = ClockSettings()
-
+    
     var body: some View {
         if let parameters = settings.parameters {
-            ClockDashboardView(parameters: parameters) {
-                settings.reset()
-            }
+            ClockDashboardView(
+                parameters: parameters,
+                onReset: {
+                    settings.reset()
+                },
+                onUpdateParameters: { updated in
+                    settings.parameters = updated
+                }
+            )
         } else {
             OnboardingGuideView { parameters in
                 settings.parameters = parameters
@@ -20,8 +26,10 @@ struct ContentView: View {
 private struct ClockDashboardView: View {
     let parameters: BiologicalClockParameters
     let onReset: () -> Void
+    let onUpdateParameters: (BiologicalClockParameters) -> Void
 
     @StateObject private var sunriseService = SunriseService()
+    @State private var showingSettings = false
 
     private var clock: BiologicalClock {
         BiologicalClock(parameters: parameters)
@@ -36,13 +44,26 @@ private struct ClockDashboardView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("重新设置", action: onReset)
-                        .fontWeight(.semibold)
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.headline)
+                    }
                 }
             }
         }
         .task {
             sunriseService.start()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(
+                parameters: parameters,
+                onSave: { updated in
+                    onUpdateParameters(updated)
+                },
+                onReset: {
+                    onReset()
+                }
+            )
         }
     }
 
@@ -148,16 +169,16 @@ private struct ClockDashboardView: View {
         let clampedDuration = min(duration, dayLength)
         if clampedDuration >= dayLength {
             return BiologicalClockDial.SleepArc(startFraction: 0,
-                                                endFraction: 1,
-                                                wrapsAround: false)
+                                                endFraction: 1)
         }
         let startFraction = normalizedFraction(for: wakeOffset - clampedDuration, dayLength: dayLength)
-        let endFraction = normalizedFraction(for: wakeOffset, dayLength: dayLength)
-        let wraps = startFraction > endFraction && clampedDuration < dayLength
+        var endFraction = normalizedFraction(for: wakeOffset, dayLength: dayLength)
+        if startFraction > endFraction {
+            endFraction += 1
+        }
 
         return BiologicalClockDial.SleepArc(startFraction: startFraction,
-                                            endFraction: endFraction,
-                                            wrapsAround: wraps)
+                                            endFraction: endFraction)
     }
 
     private func countdownDescription(to targetOffset: TimeInterval?, at date: Date) -> String {
