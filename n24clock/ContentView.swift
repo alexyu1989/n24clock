@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 struct ContentView: View {
@@ -20,6 +21,8 @@ private struct ClockDashboardView: View {
     let parameters: BiologicalClockParameters
     let onReset: () -> Void
 
+    @StateObject private var sunriseService = SunriseService()
+
     private var clock: BiologicalClock {
         BiologicalClock(parameters: parameters)
     }
@@ -38,6 +41,9 @@ private struct ClockDashboardView: View {
                 }
             }
         }
+        .task {
+            sunriseService.start()
+        }
     }
 
     @ViewBuilder
@@ -46,8 +52,8 @@ private struct ClockDashboardView: View {
         let formattedTime = Self.formattedBiologicalTime(from: state.offsetComponents)
         let remainingText = Self.remainingDescription(for: state.remainingInDay)
         let dayLengthText = Self.dayLengthDescription(for: state.dayLength)
-        let progressValue = max(0, min(100, Int(round(state.progress * 100))))
-        let dayIndexValue = "#\(state.dayIndex)"
+        let sleepCountdown = countdownDescription(to: sleepStartOffset, at: date)
+        let sunriseCountdown = sunriseCountdownDescription(at: date)
 
         ZStack {
             LinearGradient(
@@ -65,10 +71,10 @@ private struct ClockDashboardView: View {
                     mainCard(
                         state: state,
                         formattedTime: formattedTime,
-                        progressValue: progressValue,
+                        sleepCountdown: sleepCountdown,
                         remainingText: remainingText,
                         dayLengthText: dayLengthText,
-                        dayIndexValue: dayIndexValue,
+                        sunriseCountdown: sunriseCountdown,
                         date: date
                     )
                 }
@@ -81,10 +87,10 @@ private struct ClockDashboardView: View {
     private func mainCard(
         state: BiologicalClock.State,
         formattedTime: String,
-        progressValue: Int,
+        sleepCountdown: String,
         remainingText: String,
         dayLengthText: String,
-        dayIndexValue: String,
+        sunriseCountdown: String,
         date: Date
     ) -> some View {
         let columns = [GridItem(.flexible(), spacing: 16), GridItem(.flexible(), spacing: 16)]
@@ -112,8 +118,8 @@ private struct ClockDashboardView: View {
             LazyVGrid(columns: columns, spacing: 16) {
                 DashboardInfoTile(title: "距离下一生物日", value: remainingText, icon: "hourglass.bottomhalf.fill")
                 DashboardInfoTile(title: "生物钟长度", value: dayLengthText, icon: "ruler")
-                DashboardInfoTile(title: "节律进度", value: "\(progressValue)%", icon: "chart.pie.fill")
-                DashboardInfoTile(title: "当前编号", value: dayIndexValue, icon: "calendar")
+                DashboardInfoTile(title: "距离睡觉", value: sleepCountdown, icon: "bed.double.fill")
+                DashboardInfoTile(title: "距离日出", value: sunriseCountdown, icon: "sunrise.fill")
             }
         }
         .padding(24)
@@ -123,6 +129,13 @@ private struct ClockDashboardView: View {
                 .fill(Color(.systemBackground).opacity(0.95))
                 .shadow(color: Color.black.opacity(0.16), radius: 24, x: 0, y: 16)
         )
+    }
+
+    private var sleepStartOffset: TimeInterval? {
+        guard let wakeOffset = parameters.preferredWakeOffset,
+              let duration = parameters.preferredSleepDuration,
+              duration > 0 else { return nil }
+        return wakeOffset - duration
     }
 
     private var sleepArc: BiologicalClockDial.SleepArc? {
@@ -145,6 +158,28 @@ private struct ClockDashboardView: View {
         return BiologicalClockDial.SleepArc(startFraction: startFraction,
                                             endFraction: endFraction,
                                             wrapsAround: wraps)
+    }
+
+    private func countdownDescription(to targetOffset: TimeInterval?, at date: Date) -> String {
+        guard let offset = targetOffset else { return "未设定" }
+        let nextDate = clock.nextOccurrence(of: offset, after: date)
+        let interval = max(0, nextDate.timeIntervalSince(date))
+        return Self.remainingDescription(for: interval)
+    }
+
+    private func sunriseCountdownDescription(at date: Date) -> String {
+        if let sunriseDate = sunriseService.nextSunrise(after: date) {
+            return Self.remainingDescription(for: sunriseDate.timeIntervalSince(date))
+        }
+
+        switch sunriseService.authorizationStatus {
+        case .denied, .restricted:
+            return "未授权"
+        case .notDetermined:
+            return "请求权限"
+        default:
+            return sunriseService.lastError == nil ? "定位中" : "定位失败"
+        }
     }
 
     private func normalizedFraction(for offset: TimeInterval, dayLength: TimeInterval) -> Double {
